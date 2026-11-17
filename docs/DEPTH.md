@@ -27,6 +27,13 @@
 | TRAP-17 | 刊名演进 | 静默采信错误值 | 别名映射 | `app/modules/m2_titles/rules.py` | `tests/test_titles.py::test_title_alias` |
 | TRAP-22 | 多别名 | 静默采信错误值 | 确定代表名 | `app/modules/m2_titles/rules.py` | `tests/test_titles.py::test_title_spaces` |
 | TRAP-23 | 停刊区间 | 静默采信错误值 | 缺期集合剔除 | `app/modules/m5_gaps/rules.py` | `tests/test_gaps.py::test_gap_suspended` |
+| TRAP-31 | 合刊改报拆分 | 冻结原批次导致当前缺期卡在旧册数 | 从原批次按修订号派生 | `app/amend.py` | `tests/test_amendment.py::test_current_derives_from_original` |
+| TRAP-32 | 误拆分刊合并 | 直接改写推翻已签复核 | 追加修订+不可改写复核快照 | `app/store.py` | `tests/test_amendment.py::test_signed_review_survives_later_revision` |
+| TRAP-33 | 晚到的旧修订 | 旧修订回退当前事实 | 低于当前生效修订只留痕 | `app/store.py` | `tests/test_amendment.py::test_late_revision_does_not_roll_back` |
+| TRAP-34 | 同号异值 | 覆盖已生效修订 | 隔离，当前事实不变 | `app/store.py` | `tests/test_amendment.py::test_same_revision_different_value_quarantined` |
+| TRAP-35 | 重办同一修订 | 重复生成版本 | 号码+内容摘要幂等 | `app/store.py` | `tests/test_amendment.py::test_replay_same_revision_is_idempotent` |
+| TRAP-36 | 切换失败 | 空白页面/丢失复核 | 显示最后一次已签复核 | `app/store.py` | `tests/test_amendment.py::test_switch_failure_shows_last_review` |
+| TRAP-37 | 写入失败 | 半写修订污染当前事实 | 事务回滚到最后确认步骤 | `app/store.py` | `tests/test_amendment.py::test_amend_write_failure_is_atomic` |
 
 ## 对账规则
 
@@ -34,4 +41,4 @@
 
 ## 已知不覆盖
 
-不支持超过2MB输入，不执行生产自动放行；异常值需人员复核。
+不支持超过2MB输入，不执行生产自动放行；异常值需人员复核。补录修订只处理装订事实，不生成采购订单。

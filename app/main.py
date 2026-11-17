@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from app.errors import BusinessError, object_payload
 from app.pipeline import run, sample_text
-from app import store
+from app import store, amend
 from app.exporter import evidence_csv
 from pathlib import Path
 import importlib
@@ -26,7 +26,9 @@ def page(request:Request,module:int):
     if module not in range(1,8): raise BusinessError("MODULE","模块不存在",404)
     ident=request.query_params.get("run_id")
     item=store.get(ident) if ident else store.save(sample_text(),run(sample_text()))
-    return templates.TemplateResponse(request=request,name="workbench.html",context={"title":'图书馆合刊拆分与馆藏核验',"modules":MODULES,"active":module,"run":item,"report":item["result"]["reports"][module-1]})
+    compare=request.query_params.get("compare","current")
+    shown=item["base_result"] if compare=="base" else item["result"]
+    return templates.TemplateResponse(request=request,name="workbench.html",context={"title":'图书馆合刊拆分与馆藏核验',"modules":MODULES,"active":module,"run":item,"shown":shown,"report":shown["reports"][module-1],"compare":compare})
 @app.post("/api/run")
 def calculate(payload:object=Body(default=None)):
     payload=object_payload(payload)
@@ -43,6 +45,22 @@ def review(payload:object=Body(...)):
     if not isinstance(payload.get("id"),str) or not isinstance(payload.get("decision"),str): raise BusinessError("REVIEW","复核编号与决定须为文本")
     if type(payload.get("revision")) is not int: raise BusinessError("REVISION","版本须为整数")
     return store.review(str(payload.get("id","")),payload["revision"],payload.get("decision"))
+@app.post("/api/amend")
+def amend_route(payload:object=Body(...)):
+    payload=object_payload(payload)
+    ident=payload.get("id")
+    if not isinstance(ident,str) or not ident: raise BusinessError("REVIEW","批次编号须为文本")
+    if type(payload.get("revision")) is not int: raise BusinessError("REVISION","修订号须为整数")
+    if not isinstance(payload.get("changes"),list): raise BusinessError("AMEND_CHANGES","修订须包含记录变更")
+    note=payload.get("note","")
+    if note is None: note=""
+    if not isinstance(note,str): raise BusinessError("AMEND_NOTE","备注须为文本")
+    item,outcome=store.amend_batch(ident,payload["revision"],payload["changes"],note)
+    return {"status":outcome["status"],"revision":outcome["revision"],"run":item}
+@app.get("/api/amend/{ident}")
+def amend_list(ident:str): return store.amend_history(ident)
+@app.get("/api/compare/{ident}")
+def compare(ident:str): return {"id":ident,"comparison":store.get(ident)["comparison"]}
 @app.get("/api/export/{ident}")
 def export(ident:str):
     return Response(evidence_csv(store.get(ident)),media_type="text/csv",headers={"Content-Disposition":"attachment; filename=evidence.csv"})
